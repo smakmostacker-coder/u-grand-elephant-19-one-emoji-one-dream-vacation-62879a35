@@ -14,7 +14,50 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-const ENTRY = "🌅";
+/**
+ * The entry: 🌅 U+1F305 SUNRISE.
+ *
+ * Why this one and not a palm tree or an island: the competition asks for
+ * one emoji that *is* the dream vacation, and a sunrise over the sea is a
+ * moment rather than a place — the first morning of the trip, warm light
+ * on open water, somewhere far from home. It is specific (one horizon,
+ * one morning) instead of any holiday, and it still reads instantly at
+ * any size on any screen. The code point is stored once, by name, so
+ * nothing else in the file can drift to a different emoji by accident.
+ */
+const ENTRY_EMOJI = "🌅";
+const ENTRY = ENTRY_EMOJI;
+
+/** Count code points (not UTF-16 units) so astral-plane emoji count as 1. */
+function codePointCount(text: string): number {
+  return [...text].length;
+}
+
+/** Byte length of the entry as UTF-8 — a single emoji is exactly 4 bytes. */
+function utf8ByteLength(text: string): number {
+  return Buffer.byteLength(text, "utf8");
+}
+
+/**
+ * Full entry check: exactly one code point, inside the competition's
+ * 1–8 character window, a real pictographic emoji, and not whitespace.
+ * Throws on the first failing rule so a bad entry can never be written.
+ */
+function validateEntry(text: string): void {
+  const chars = [...text];
+  if (chars.length !== 1) {
+    throw new Error(`entry must be exactly one emoji, got ${chars.length} characters`);
+  }
+  if (codePointCount(text) < 1 || codePointCount(text) > 8) {
+    throw new Error(`entry must be 1-8 characters, got ${codePointCount(text)}`);
+  }
+  if (!/\p{Extended_Pictographic}/u.test(chars[0]!)) {
+    throw new Error("entry must be an emoji");
+  }
+  if (text.trim().length === 0) {
+    throw new Error("entry must not be only white space");
+  }
+}
 
 function validate(text: string): void {
   if (text.length === 0) {
@@ -41,6 +84,7 @@ function validate(text: string): void {
 const outDir = process.env.MAKEFUN_OUTPUT_DIR ?? "/output";
 mkdirSync(outDir, { recursive: true });
 validate(ENTRY);
+validateEntry(ENTRY);
 const outPath = join(outDir, "entry.txt");
 writeFileSync(outPath, ENTRY, "utf8");
 // Read the file back and re-check it: the program only exits cleanly
@@ -50,3 +94,7 @@ if (written !== ENTRY) {
   throw new Error("entry.txt on disk does not match the validated entry");
 }
 validate(written);
+validateEntry(written);
+console.log(
+  `entry.txt written: ${written} (${codePointCount(written)} code point, ${utf8ByteLength(written)} bytes)`,
+);
